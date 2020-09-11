@@ -1,0 +1,36 @@
+# You must change these to your own details.
+[package]
+authors = ["Andrew Duda <dudanian@gmail.com>"]
+description = "Serde deserializer for WASM Documents"
+edition = "2018"
+name = "serde-webdoc"
+readme = "README.md"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+paste = "1.0.0"
+serde = "1.0.115"
+
+[dependencies.web-sys]
+features = [
+  "console",
+  "Document",
+  "Element",
+  "Node",
+]
+version = "0.3.44"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.17"
+
+[dev-dependencies.serde]
+features = ["derive"]
+
+[dev-dependencies.web-sys]
+features = [
+  "DomParser",
+  "SupportedType",
+]
