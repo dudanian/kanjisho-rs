@@ -1,2 +1,2 @@
 [workspace]
-members = ["parse", "populate", "web"]
+members = ["parse", "populate", "backend"]
