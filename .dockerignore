@@ -1,0 +1,11 @@
+# Ignore meta
+/.git
+/.github
+/.cargo
+
+# Ignore intermediate data
+/data
+/target
+
+# Ignore Docker itself
+/Dockerfile
