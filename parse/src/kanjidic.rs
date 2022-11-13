@@ -247,7 +247,7 @@ fn parse_rmgroup(node: Node, entry: &mut Kanji) {
                 value: get_text(n.text()),
                 lang: get_text(n.attribute("r_type")),
             }),
-            "meaning" => group.readings.push(Part {
+            "meaning" => group.meanings.push(Part {
                 value: get_text(n.text()),
                 lang: n
                     .attribute("m_lang")
