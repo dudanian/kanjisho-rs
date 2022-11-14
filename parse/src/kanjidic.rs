@@ -45,6 +45,8 @@ pub struct Kanji {
     // start reading_meaning
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    // TODO there is never an instance where this is > 1
+    // so why bother making it a vec?
     pub entries: Vec<ReadingMeaning>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]

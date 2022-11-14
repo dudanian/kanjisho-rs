@@ -69,12 +69,16 @@ fn do_it() -> redis::RedisResult<()> {
         let s = serde_json::to_string(&kanji).expect("failed to serialize");
         let c = kanji.literal.to_string();
 
-        // con.set(&c, s)?;
+       // con.set(&c, s)?;
+
+       if kanji.entries.len() > 1 {
+        println!("entries > 1, {}", kanji.literal)
+       }
 
         v.push(kanji.literal);
     }
     let i = serde_json::to_string(&v)?;
-    con.set("index", i)?;
+    //con.set("index", i)?;
 
     Ok(())
 }
