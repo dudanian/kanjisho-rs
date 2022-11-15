@@ -1,9 +1,10 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
-    extract::Path, http::StatusCode, response::IntoResponse, routing::get, Extension, Router,
+    extract::Path, http::StatusCode, response::IntoResponse, routing::get, Extension, Json, Router,
 };
-use redis::{Commands, ConnectionLike, RedisError};
+use parse::kanjidic;
+use redis::{Commands, RedisError};
 use std::env;
 
 struct Config {
@@ -13,6 +14,7 @@ struct Config {
 
 enum AppError {
     RedisError(RedisError),
+    SerdeError(serde_json::Error),
 }
 
 fn get_config() -> Config {
@@ -49,9 +51,11 @@ async fn get_kanjidic_index(client: Extension<Arc<redis::Client>>) -> Result<Str
 async fn get_kanjidic(
     Path(kanji): Path<String>,
     client: Extension<Arc<redis::Client>>,
-) -> Result<String, AppError> {
+) -> Result<Json<kanjidic::Kanji>, AppError> {
     let mut con = client.get_connection()?;
-    Ok(con.get(kanji)?)
+    let raw: String = con.get(kanji)?;
+    let kanji: kanjidic::Kanji = serde_json::from_str(&raw)?;
+    Ok(Json(kanji))
 }
 
 impl From<RedisError> for AppError {
@@ -60,10 +64,17 @@ impl From<RedisError> for AppError {
     }
 }
 
+impl From<serde_json::Error> for AppError {
+    fn from(e: serde_json::Error) -> Self {
+        AppError::SerdeError(e)
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         let body = match self {
             AppError::RedisError(e) => e.to_string(),
+            AppError::SerdeError(e) => e.to_string(),
         };
         (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
     }

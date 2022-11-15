@@ -9,6 +9,9 @@ default-run = "backend"
 [dependencies]
 axum = "0.5.17"
 redis = "0.22.1"
+serde_json = "1.0.87"
+parse = { path = "../parse" }
+
 
 [dependencies.serde]
 version = "1.0.147"
