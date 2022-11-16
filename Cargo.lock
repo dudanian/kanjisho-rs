@@ -126,6 +126,7 @@ name = "backend"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "mongodb",
  "parse",
  "redis",
  "serde",
