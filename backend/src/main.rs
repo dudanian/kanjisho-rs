@@ -5,6 +5,7 @@ use axum::{
 };
 use parse::kanjidic;
 use redis::{Commands, RedisError};
+use tower_http::trace::TraceLayer;
 use std::env;
 
 struct Config {
@@ -30,13 +31,17 @@ async fn main() {
     let client = redis::Client::open(config.redis_url).unwrap();
     let state = Arc::new(client);
 
+    tracing_subscriber::fmt::init();
+
     let app = Router::new()
         .route("/", get(|| async { "pong" }))
         .route("/kanjidic", get(get_kanjidic_index))
         .route("/kanjidic/:kanji", get(get_kanjidic))
-        .layer(Extension(state));
+        .layer(Extension(state))
+        .layer(TraceLayer::new_for_http());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.server_port));
+    tracing::debug!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
