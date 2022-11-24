@@ -1,15 +1,10 @@
+mod kanjidic;
+
 use std::{net::SocketAddr, sync::Arc};
 
-use axum::{
-    extract::Path, http::StatusCode, response::IntoResponse, routing::get, Extension, Json, Router,
-};
-use mongodb::bson::doc;
-use parse::kanjidic::{self, Kanji};
+use axum::{http::StatusCode, response::IntoResponse, routing::get, Extension, Router};
 use std::env;
 use tower_http::trace::TraceLayer;
-mod db;
-
-type Database = mongodb::Database;
 
 pub struct Config {
     redis_url: String,
@@ -17,7 +12,8 @@ pub struct Config {
     server_port: u16,
 }
 
-enum AppError {
+pub enum AppError {
+    Error(String),
     // RedisError(RedisError),
     MongoError(mongodb::error::Error),
     SerdeError(serde_json::Error),
@@ -30,6 +26,8 @@ fn get_config() -> Config {
         server_port: env::var("SERVER_PORT").unwrap().parse().unwrap(),
     }
 }
+
+type Database = Arc<mongodb::Database>;
 
 #[tokio::main]
 async fn main() {
@@ -47,8 +45,11 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(|| async { "pong" }))
-        .route("/kanjidic", get(get_kanjidic_index))
-        .route("/kanjidic/:kanji", get(get_kanjidic))
+        .route("/kanjidic", get(kanjidic::get_index))
+        .route("/kanjidic/random", get(kanjidic::get_random))
+        .route("/kanjidic/dict", get(kanjidic::get_dict_entries))
+        .route("/kanjidic/search", get(kanjidic::get_search))
+        .route("/kanjidic/:kanji", get(kanjidic::get_kanji))
         .layer(Extension(state))
         .layer(TraceLayer::new_for_http());
 
@@ -58,28 +59,6 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
-}
-
-async fn get_kanjidic_index(db: Extension<Arc<Database>>) -> Result<Json<Vec<String>>, AppError> {
-
-    let out = db.collection::<Kanji>("kanjidic").distinct("literal", None, None).await?;
-    Ok(Json(out.iter().map(|b| b.to_string()).collect()))
-}
-
-async fn get_kanjidic(
-    Path(kanji): Path<String>,
-    db: Extension<Arc<Database>>,
-) -> Result<Json<kanjidic::Kanji>, AppError> {
-    // let mut con = client.get_connection()?;
-    // let raw: String = con.get(kanji)?;
-    // let kanji: kanjidic::Kanji = serde_json::from_str(&raw)?;
-
-    let out = db
-        .collection::<Kanji>("kanjidic")
-        .find_one(doc! { "literal": kanji}, None)
-        .await?;
-
-    Ok(Json(out.unwrap()))
 }
 
 // impl From<RedisError> for AppError {
@@ -103,6 +82,7 @@ impl From<serde_json::Error> for AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         let body = match self {
+            AppError::Error(e) => e,
             // AppError::RedisError(e) => e.to_string(),
             AppError::MongoError(e) => e.to_string(),
             AppError::SerdeError(e) => e.to_string(),

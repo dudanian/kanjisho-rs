@@ -58,10 +58,10 @@ pub struct Kanji {
     pub grade: Option<i32>,
     /// The stroke count of the kanji, including the radical.
     pub stroke_count: i32,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     /// Common stroke miscounts. (See Appendix E. of the KANJIDIC documentation
     /// for some of the rules applied when counting strokes in some of the
     /// radicals.) [S]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stroke_miscounts: Vec<i32>,
     /// Either a cross-reference code to another kanji, usually regarded as a
     /// variant, or an alternative indexing code for the current kanji.
@@ -157,7 +157,7 @@ pub struct Kanji {
     ///  * maniette - codes from Yves Maniette's "Les Kanjis dans la tete"
     ///      French adaptation of Heisig.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub dict: Vec<Reference>,
+    pub dict: Vec<Reference<i32>>,
     /// These codes contain information relating to the glyph, and can be used
     /// for finding a required kanji. The type of code is defined by the
     /// qc_type attribute.
@@ -403,9 +403,17 @@ fn parse_dic_number(node: Node, entry: &mut Kanji) {
     entry.dict = node
         .children()
         .filter(|n| n.is_element())
-        .map(|n| Reference {
-            value: get_text(n.text()),
-            typ: get_text(n.attribute("dr_type")),
+        .filter_map(|n| {
+            let typ = get_text(n.attribute("dr_type"));
+            // skip busy people with their non-int format
+            if typ == "busy_people" || typ == "moro" || typ == "oneill_names" {
+                return None;
+            }
+            println!("{}, {}", typ, n.text().unwrap());
+            Some(Reference {
+                value: get_num(n.text()),
+                typ,
+            })
         })
         .collect();
 }
