@@ -1,5 +1,5 @@
-mod kanjidic;
-
+mod data;
+mod kanji;
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Extension, Router};
@@ -45,11 +45,11 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(|| async { "pong" }))
-        .route("/kanjidic", get(kanjidic::get_index))
-        .route("/kanjidic/random", get(kanjidic::get_random))
-        .route("/kanjidic/dict", get(kanjidic::get_dict_entries))
-        .route("/kanjidic/search", get(kanjidic::get_search))
-        .route("/kanjidic/:kanji", get(kanjidic::get_kanji))
+        .route("/kanjidic", get(kanji::get_index))
+        .route("/kanjidic/random", get(kanji::get_random))
+        .route("/kanjidic/dict", get(kanji::get_dict_entries))
+        .route("/kanjidic/search", get(kanji::get_search))
+        .route("/kanjidic/:kanji", get(kanji::get_kanji))
         .layer(Extension(state))
         .layer(TraceLayer::new_for_http());
 

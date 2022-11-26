@@ -1,5 +1,4 @@
 pub mod kanjidic;
-use std::collections::HashMap;
 
 fn data_path(file: &str) -> std::path::PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "../data", file]
@@ -7,37 +6,66 @@ fn data_path(file: &str) -> std::path::PathBuf {
         .collect()
 }
 
-pub fn read_kanjidic() -> String {
-    std::fs::read_to_string(data_path("kanjidic2.xml")).unwrap()
+pub fn read_file(filename: &str) -> String {
+    std::fs::read_to_string(data_path(filename)).unwrap()
 }
 
-pub fn read_klc() -> String {
-    std::fs::read_to_string(data_path("klc.txt")).unwrap()
-}
+pub mod util {
+    use std::collections::HashMap;
 
-/// Maps a list of input charactecrs to their repsective 1-offset index.
-/// Any duplicate charactercs will result in that character being returned
-/// as an error.
-///
-/// While parsing the list:
-///  - newlines are ignored
-///  - space characters can be used to skip entries
-///  - any other unicode character will be mapped
-pub fn read_char_index(text: &str) -> Result<HashMap<char, u32>, char> {
-    let mut m = HashMap::new();
-    let mut i = 0;
+    /// Maps a list of input characters to their repsective 1-offset indexes.
+    /// Any duplicate characters will result in that character being returned
+    /// as an error.
+    ///
+    /// While parsing the list:
+    ///  - newlines are ignored
+    ///  - space characters can be used to skip entries
+    ///  - any other unicode character will be mapped
+    pub fn index_mapping(list: &str) -> Result<HashMap<char, u32>, char> {
+        let mut m = HashMap::new();
 
-    for l in text.lines() {
-        for c in l.chars() {
-            i += 1;
+        for (i, c) in char_iter(list).enumerate() {
+            let index = (i + 1) as u32;
             if c == ' ' {
                 continue;
             }
-            if let Some(_) = m.insert(c, i) {
+
+            if let Some(_) = m.insert(c, index) {
                 return Err(c);
             }
         }
+
+        Ok(m)
     }
 
-    Ok(m)
+    /// Maps an array of lists of characters to their 1-offset index in the input array.
+    /// Any duplicate characters will result in that character being returned
+    /// as an error.
+    ///
+    /// While parsing the list:
+    ///  - newlines are ignored
+    ///  - space characters can be used to skip entries
+    ///  - any other unicode character will be mapped
+    pub fn grade_mapping(grades: &[&str]) -> Result<HashMap<char, u32>, char> {
+        let mut m = HashMap::default();
+
+        for (i, list) in grades.iter().enumerate() {
+            let grade = (i + 1) as u32;
+            for c in char_iter(list) {
+                if c == ' ' {
+                    continue;
+                }
+
+                if let Some(_) = m.insert(c, grade) {
+                    return Err(c);
+                }
+            }
+        }
+
+        Ok(m)
+    }
+
+    fn char_iter<'a>(list: &'a str) -> impl Iterator<Item = char> + 'a {
+        list.lines().flat_map(|l| l.chars())
+    }
 }

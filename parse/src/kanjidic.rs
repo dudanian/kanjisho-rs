@@ -469,7 +469,7 @@ fn get_optional_num(s: Option<&str>) -> Option<u32> {
 
 #[test]
 fn test_parse() {
-    let text = super::read_kanjidic();
+    let text = super::read_file("kanjidic2.xml");
     for kanji in parse(&text).entries() {
         println!("{:?}", kanji);
     }

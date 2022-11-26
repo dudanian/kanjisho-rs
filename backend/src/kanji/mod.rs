@@ -3,15 +3,13 @@ use axum::{
     response::IntoResponse,
     Extension, Json,
 };
+use backend::data::kanji::Kanji;
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::doc,
     options::{AggregateOptions, Collation, FindOptions},
 };
-use parse::kanjidic::Kanji;
 use serde::Deserialize;
-
-mod data;
 
 use crate::{AppError, Database};
 
@@ -71,11 +69,8 @@ pub async fn get_dict_entry(
     let out = db
         .collection::<Kanji>("kanjidic")
         .find_one(
-            doc! { "dict": {
-                "$elemMatch": {
-                    "type": &filter.dict,
-                    "value": &filter.entry,
-                },
+            doc! { "references": {
+                &filter.dict: &filter.entry,
             }},
             None,
         )
@@ -119,46 +114,7 @@ pub async fn get_dict_entries(
             },
             find_options,
         )
-        // .aggregate(
-        // sorting on this is pure torture
-        // maybe this would be easier using $project?
-        // [
-        // doc! {
-        //     "$match" : {
-        //         "dict": {
-        //             "$elemMatch": {
-        //                 "type": &params.dict,
-        //             },
-        //         }
-        //     }
-        // },
-        // // doc! {
-        // //     "$unwind": "$dict",
-        // // },
-        // doc! {
-        //     "$filter": {
-        //         input: "dict",
-        //     }
-        // }
-        // doc! {
-        //     "$match": {
-        //         "dict.type": &params.dict,
-        //     }
-        // },
-        // doc! {
-        //     "$sort": {
-        //         "dict.value": 1,
-        //     }
-        // },
-        // doc! {
-        //     "$limit": from + count,
-        // },
-        // doc! {
-        //     "$skip": from,
-        // },
-        // ],
-        // options,
-        // )
+
         .await?
         .with_type::<Kanji>();
 
