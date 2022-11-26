@@ -1,5 +1,4 @@
 use roxmltree::{Document, Node, ParsingOptions};
-use serde::{Deserialize, Serialize};
 
 /// This module is based off of the DTD of the XML-format kanji file
 /// combining information from the KANJIDIC and KANJD212 files. This
@@ -15,7 +14,7 @@ use serde::{Deserialize, Serialize};
 ///    * the 952 "new" kanji have new entries.
 ///
 /// At the end of the explanation for a number of fields there is a tag
-/// with the format \[N\]. This indicates the leading letter(s) of the
+/// with the format [N]. This indicates the leading letter(s) of the
 /// equivalent field in the KANJIDIC and KANJD212 files.
 ///
 /// The KANJIDIC documentation should also be read for additional
@@ -26,11 +25,11 @@ pub struct Kanjidic<'a> {
 
 /// The single header element will contain identification information
 /// about the version of the file
-#[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default)]
 pub struct Header {
     /// This field denotes the version of kanjidic2 structure, as more
     /// than one version may exist.
-    file_version: i32,
+    file_version: u32,
     /// The version of the file, in the format YYYY-NN, where NN will be
     /// a number starting with 01 for the first version released in a
     /// calendar year, then increasing for each version in that year.
@@ -39,42 +38,11 @@ pub struct Header {
     date_of_creation: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum NumString {
-    Num(i32),
-    String(String),
-}
-
 /// A Kanji entry in the dictionary
-#[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default)]
 pub struct Kanji {
     /// The character itself in UTF8 coding.
     pub literal: char,
-    /// The codepoint element states the code of the character in the various
-    /// character set standards.
-    ///
-    /// The cp_value contains the codepoint of the character in a particular
-    /// standard. The standard will be identified in the cp_type attribute.
-    ///
-    /// The cp_type attribute states the coding standard applying to the
-    /// element. The values assigned so far are:
-    ///  * jis208 - JIS X 0208-1997 - kuten coding (nn-nn)
-    ///  * jis212 - JIS X 0212-1990 - kuten coding (nn-nn)
-    ///  * jis213 - JIS X 0213-2000 - kuten coding (p-nn-nn)
-    ///  * ucs - Unicode 4.0 - hex coding (4 or 5 hexadecimal digits)
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub codepoint: Vec<Reference>,
-    /// The radical number, in the range 1 to 214. The particular
-    /// classification type is stated in the rad_type attribute.
-    ///
-    /// The rad_type attribute states the type of radical classification.
-    ///  * classical - based on the system first used in the KangXi Zidian.
-    ///      The Shibano "JIS Kanwa Jiten" is used as the reference source.
-    ///  * nelson_c - as used in the Nelson "Modern Japanese-English
-    ///      Character Dictionary" (i.e. the Classic, not the New Nelson).
-    ///      This will only be used where Nelson reclassified the kanji.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub radical: Vec<Reference<i32>>,
     /// The kanji grade level. 1 through 6 indicates a Kyouiku kanji
     /// and the grade in which the kanji is taught in Japanese schools.
     /// 8 indicates it is one of the remaining Jouyou Kanji to be learned
@@ -83,19 +51,82 @@ pub struct Kanji {
     /// for use in family name registers and other official documents. 10
     /// also indicates a Jinmeiyou kanji which is a variant of a
     /// Jouyou kanji. [G]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grade: Option<i32>,
-    /// The stroke count of the kanji, including the radical.
-    pub stroke_count: i32,
-    /// Common stroke miscounts. (See Appendix E. of the KANJIDIC documentation
+    pub grade: Option<u32>,
+    /// The stroke count of the kanji, including the radical. If more than
+    /// one, the first is considered the accepted count, while subsequent ones
+    /// are common miscounts. (See Appendix E. of the KANJIDIC documentation
     /// for some of the rules applied when counting strokes in some of the
     /// radicals.) [S]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub stroke_miscounts: Vec<i32>,
-    /// Either a cross-reference code to another kanji, usually regarded as a
-    /// variant, or an alternative indexing code for the current kanji.
-    /// The type of variant is given in the var_type attribute.
-    ///
+    pub stroke_count: Vec<u32>,
+    /// A frequency-of-use ranking. The 2,500 most-used characters have a
+    /// ranking; those characters that lack this field are not ranked. The
+    /// frequency is a number from 1 to 2,500 that expresses the relative
+    /// frequency of occurrence of a character in modern Japanese. This is
+    /// based on a survey in newspapers, so it is biassed towards kanji
+    /// used in newspaper articles. The discrimination between the less
+    /// frequently used kanji is not strong. (Actually there are 2,501
+    /// kanji ranked as there was a tie.)
+    pub freq: Option<u32>,
+    /// When the kanji is itself a radical and has a name, this element
+    /// contains the name (in hiragana.) [T2]
+    pub rad_name: Vec<String>,
+    /// The (former) Japanese Language Proficiency test level for this kanji.
+    /// Values range from 1 (most advanced) to 4 (most elementary). This field
+    /// does not appear for kanji that were not required for any JLPT level.
+    /// Note that the JLPT test levels changed in 2010, with a new 5-level
+    /// system (N1 to N5) being introduced. No official kanji lists are
+    /// available for the new levels. The new levels are regarded as
+    /// being similar to the old levels except that the old level 2 is
+    /// now divided between N2 and N3.
+    pub jlpt: Option<u32>,
+    /// Japanese readings that are now only associated with names.
+    pub nanori: Vec<String>,
+
+    // remaining nested fields
+    pub codepoint: Vec<Codepoint>,
+    pub radical: Vec<Radical>,
+    pub variant: Vec<Variant>,
+    pub dic_number: Vec<DicRef>,
+    pub quecy_code: Vec<QueryCode>,
+    pub rmgroup: Vec<ReadingMeaning>,
+}
+
+/// The codepoint element states the code of the character in the various
+/// character set standards.
+#[derive(Debug, Default)]
+pub struct Codepoint {
+    /// The cp_value contains the codepoint of the character in a particular
+    /// standard. The standard will be identified in the cp_type attribute.
+    pub cp_value: String,
+    /// The cp_type attribute states the coding standard applying to the
+    /// element. The values assigned so far are:
+    ///  * jis208 - JIS X 0208-1997 - kuten coding (nn-nn)
+    ///  * jis212 - JIS X 0212-1990 - kuten coding (nn-nn)
+    ///  * jis213 - JIS X 0213-2000 - kuten coding (p-nn-nn)
+    ///  * ucs - Unicode 4.0 - hex coding (4 or 5 hexadecimal digits)
+    pub cp_type: String,
+}
+
+#[derive(Debug, Default)]
+pub struct Radical {
+    /// The radical number, in the range 1 to 214. The particular
+    /// classification type is stated in the rad_type attribute.
+    pub rad_value: u32,
+    /// The rad_type attribute states the type of radical classification.
+    ///  * classical - based on the system first used in the KangXi Zidian.
+    ///      The Shibano "JIS Kanwa Jiten" is used as the reference source.
+    ///  * nelson_c - as used in the Nelson "Modern Japanese-English
+    ///      Character Dictionary" (i.e. the Classic, not the New Nelson).
+    ///      This will only be used where Nelson reclassified the kanji.
+    pub rad_type: String,
+}
+
+/// Either a cross-reference code to another kanji, usually regarded as a
+/// variant, or an alternative indexing code for the current kanji.
+/// The type of variant is given in the var_type attribute.
+#[derive(Debug, Default)]
+pub struct Variant {
+    pub variant: String,
     /// The var_type attribute indicates the type of variant code. The current
     /// values are:
     ///  * jis208 - in JIS X 0208 - kuten coding
@@ -109,39 +140,18 @@ pub struct Kanji {
     ///  * nelson_c - "Classic" Nelson - numeric
     ///  * oneill - Japanese Names (O'Neill) - numeric
     ///  * ucs - Unicode codepoint- hex
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub variant: Vec<Reference>,
-    /// A frequency-of-use ranking. The 2,500 most-used characters have a
-    /// ranking; those characters that lack this field are not ranked. The
-    /// frequency is a number from 1 to 2,500 that expresses the relative
-    /// frequency of occurrence of a character in modern Japanese. This is
-    /// based on a survey in newspapers, so it is biassed towards kanji
-    /// used in newspaper articles. The discrimination between the less
-    /// frequently used kanji is not strong. (Actually there are 2,501
-    /// kanji ranked as there was a tie.)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub freq: Option<i32>,
-    /// When the kanji is itself a radical and has a name, this element
-    /// contains the name (in hiragana.) [T2]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub names: Vec<String>,
-    /// The (former) Japanese Language Proficiency test level for this kanji.
-    /// Values range from 1 (most advanced) to 4 (most elementary). This field
-    /// does not appear for kanji that were not required for any JLPT level.
-    /// Note that the JLPT test levels changed in 2010, with a new 5-level
-    /// system (N1 to N5) being introduced. No official kanji lists are
-    /// available for the new levels. The new levels are regarded as
-    /// being similar to the old levels except that the old level 2 is
-    /// now divided between N2 and N3.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub jlpt: Option<i32>,
-    /// This element contains the index numbers and similar unstructured
-    /// information such as page numbers in a number of published dictionaries,
-    /// and instructional books on kanji.
-    ///
+    pub var_type: String,
+}
+
+/// This element contains the index numbers and similar unstructured
+/// information such as page numbers in a number of published dictionaries,
+/// and instructional books on kanji.
+#[derive(Debug, Default)]
+pub struct DicRef {
     /// Each dic_ref contains an index number. The particular dictionary,
     /// etc. is defined by the dr_type attribute.
-    ///
+    /// Note: this field is not always a number.
+    pub dic_ref: String,
     /// The dr_type defines the dictionary or reference book, etc. to which
     /// dic_ref element applies. The initial allocation is:
     ///  * nelson_c - "Modern Reader's Japanese-English Character Dictionary",
@@ -185,15 +195,21 @@ pub struct Kanji {
     ///  * kodansha_compact - the "Kodansha Compact Kanji Guide".
     ///  * maniette - codes from Yves Maniette's "Les Kanjis dans la tete"
     ///      French adaptation of Heisig.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub dict: Vec<Reference<NumString>>,
-    /// These codes contain information relating to the glyph, and can be used
-    /// for finding a required kanji. The type of code is defined by the
-    /// qc_type attribute.
-    ///
+    pub dr_type: String,
+    /// See above under "moro".
+    pub m_vol: Option<u32>,
+    /// See above under "moro".
+    pub m_page: Option<u32>,
+}
+
+/// These codes contain information relating to the glyph, and can be used
+/// for finding a required kanji. The type of code is defined by the
+/// qc_type attribute.
+#[derive(Debug, Default)]
+pub struct QueryCode {
     /// The q_code contains the actual query-code value, according to the
     /// qc_type attribute.
-    ///
+    pub q_code: String,
     /// The qc_type attribute defines the type of query code. The current values
     /// are:
     ///  * skip - Halpern's SKIP (System of Kanji Indexing by Patterns)
@@ -219,18 +235,31 @@ pub struct Kanji {
     ///  * misclass - a possible misclassification of the kanji according
     ///      to one of the code types. (See the "Z" codes in the KANJIDIC
     ///      documentation for more details.)
-    ///
+    pub qc_type: String,
     /// The values of this attribute indicate the type if
     /// misclassification:
     ///  * posn - a mistake in the division of the kanji
     ///  * stroke_count - a mistake in the number of strokes
     ///  * stroke_and_posn - mistakes in both division and strokes
     ///  * stroke_diff - ambiguous stroke counts depending on glyph
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub query: Vec<Query>,
+    pub skip_misclass: Option<String>,
+}
+
+/// The readings for the kanji in several languages, and the meanings, also
+/// in several languages. The readings and meanings are grouped to enable
+/// the handling of the situation where the meaning is differentiated by
+/// reading. [T1]
+#[derive(Debug, Default)]
+pub struct ReadingMeaning {
+    pub reading: Vec<Reading>,
+    pub meaning: Vec<Meaning>,
+}
+
+#[derive(Debug, Default)]
+pub struct Reading {
     /// The reading element contains the reading or pronunciation
     /// of the kanji.
-    ///
+    pub reading: String,
     /// The r_type attribute defines the type of reading in the reading
     /// element. The current values are:
     ///  * pinyin - the modern PinYin romanization of the Chinese reading
@@ -242,48 +271,22 @@ pub struct Kanji {
     ///  * korean_h - the Korean reading(s) of the kanji in hangul.
     ///  * vietnam - the Vietnamese readings supplied by Minh Chau Pham.
     ///  * ja_on - the "on" Japanese reading of the kanji, in katakana.
-    ///      Another attribute r_status, if present, will indicate with
-    ///      a value of "jy" whether the reading is approved for a
-    ///      "Jouyou kanji". (The r_status attribute is not currently used.)
-    ///      A further attribute on_type, if present, will indicate with
-    ///      a value of kan, go, tou or kan'you the type of on-reading.
-    ///      (The on_type attribute is not currently used.)
     ///  * ja_kun - the "kun" Japanese reading of the kanji, usually in
     ///      hiragana.
     ///      Where relevant the okurigana is also included separated by a
     ///      ".". Readings associated with prefixes and suffixes are
-    ///      marked with a "-". A second attribute r_status, if present,
-    ///      will indicate with a value of "jy" whether the reading is
-    ///      approved for a "Jouyou kanji". (The r_status attribute is
-    ///      not currently used.)
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub readings: Vec<Reference>,
+    ///      marked with a "-".
+    pub r_type: String,
+}
+
+#[derive(Debug, Default)]
+pub struct Meaning {
     /// The meaning associated with the kanji.
-    ///
+    pub meaning: String,
     /// The m_lang attribute defines the target language of the meaning. It
     /// will be coded using the two-letter language code from the ISO 639-1
-    /// standard. When absent, the value "en" (i.e. English) is implied. [{}]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub meanings: Vec<Reference>,
-    /// Japanese readings that are now only associated with names.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub nanori: Vec<String>,
-}
-
-#[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
-pub struct Reference<T = String> {
-    pub value: T,
-    #[serde(rename = "type")]
-    pub typ: String,
-}
-
-#[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
-pub struct Query {
-    pub value: String,
-    #[serde(rename = "type")]
-    pub typ: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub misclass: Option<String>,
+    /// standard. When absent, the value "en" (i.e. English) is implied.
+    pub m_lang: String,
 }
 
 impl<'a> Kanjidic<'a> {
@@ -345,21 +348,11 @@ fn parse_entry(node: Node) -> Kanji {
         }
     }
 
-    assert!(k.literal != char::default(), "need a literal!");
-    assert!(
-        k.stroke_count != i32::default(),
-        "need at least one stroke count!"
-    );
-    return k;
+    k
 }
 
 fn parse_literal(node: Node, entry: &mut Kanji) {
     let text = node.text().expect("failed to get text").trim();
-    assert!(
-        text.chars().count() == 1,
-        "only expected single char for literal, got {}",
-        text
-    );
     let c = text.chars().next().expect("no first char");
     entry.literal = c
 }
@@ -368,9 +361,9 @@ fn parse_codepoint(node: Node, entry: &mut Kanji) {
     entry.codepoint = node
         .children()
         .filter(|n| n.is_element())
-        .map(|n| Reference {
-            value: get_text(n.text()),
-            typ: get_text(n.attribute("cp_type")),
+        .map(|n| Codepoint {
+            cp_value: get_text(n.text()),
+            cp_type: get_text(n.attribute("cp_type")),
         })
         .collect();
 }
@@ -379,9 +372,9 @@ fn parse_radical(node: Node, entry: &mut Kanji) {
     entry.radical = node
         .children()
         .filter(|n| n.is_element())
-        .map(|n| Reference {
-            value: get_num(n.text()),
-            typ: get_text(n.attribute("rad_type")),
+        .map(|n| Radical {
+            rad_value: get_num(n.text()),
+            rad_type: get_text(n.attribute("rad_type")),
         })
         .collect();
 }
@@ -390,20 +383,13 @@ fn parse_misc(node: Node, entry: &mut Kanji) {
     for n in node.children().filter(|n| n.is_element()) {
         match n.tag_name().name() {
             "grade" => entry.grade = Some(get_num(n.text())),
-            "stroke_count" => {
-                let count = get_num(n.text());
-                if entry.stroke_count == 0 {
-                    entry.stroke_count = count
-                } else {
-                    entry.stroke_miscounts.push(count)
-                }
-            }
-            "variant" => entry.variant.push(Reference {
-                value: get_text(n.text()),
-                typ: get_text(n.attribute("var_type")),
+            "stroke_count" => entry.stroke_count.push(get_num(n.text())),
+            "variant" => entry.variant.push(Variant {
+                variant: get_text(n.text()),
+                var_type: get_text(n.attribute("var_type")),
             }),
             "freq" => entry.freq = Some(get_num(n.text())),
-            "rad_name" => entry.names.push(get_text(n.text())),
+            "rad_name" => entry.rad_name.push(get_text(n.text())),
             "jlpt" => entry.jlpt = Some(get_num(n.text())),
             tag => println!("Warning: unexpected tag name in misc: {}", tag),
         };
@@ -411,42 +397,32 @@ fn parse_misc(node: Node, entry: &mut Kanji) {
 }
 
 fn parse_dic_number(node: Node, entry: &mut Kanji) {
-    entry.dict = node
+    entry.dic_number = node
         .children()
         .filter(|n| n.is_element())
-        .map(|n| {
-            let typ = get_text(n.attribute("dr_type"));
-
-            let text = get_text(n.text());
-            let value = match text.parse::<i32>() {
-                Ok(i) => NumString::Num(i),
-                Err(_) => NumString::String(text),
-            };
-
-            Reference { value, typ }
+        .map(|n| DicRef {
+            dic_ref: get_text(n.text()),
+            dr_type: get_text(n.attribute("dr_type")),
+            m_vol: get_optional_num(n.attribute("m_vol")),
+            m_page: get_optional_num(n.attribute("m_page")),
         })
         .collect();
 }
 
 fn parse_query_code(node: Node, entry: &mut Kanji) {
-    entry.query = node
+    entry.quecy_code = node
         .children()
         .filter(|n| n.is_element())
-        .map(|n| Query {
-            value: get_text(n.text()),
-            typ: get_text(n.attribute("qc_type")),
-            misclass: n.attribute("skip_misclass").map(|s| s.trim().into()),
+        .map(|n| QueryCode {
+            q_code: get_text(n.text()),
+            qc_type: get_text(n.attribute("qc_type")),
+            skip_misclass: get_optional_text(n.attribute("skip_misclass")),
         })
         .collect();
 }
 
 fn parse_reading_meaning(node: Node, entry: &mut Kanji) {
     for n in node.children().filter(|n| n.is_element()) {
-        assert!(
-            n.children().filter(|n| n.has_tag_name("rmgroup")).count() <= 1,
-            "cannot have more than one rmgroup!"
-        );
-
         match n.tag_name().name() {
             "rmgroup" => parse_rmgroup(n, entry),
             "nanori" => entry.nanori.push(get_text(n.text())),
@@ -456,40 +432,44 @@ fn parse_reading_meaning(node: Node, entry: &mut Kanji) {
 }
 
 fn parse_rmgroup(node: Node, entry: &mut Kanji) {
+    let mut group = ReadingMeaning::default();
+
     for n in node.children().filter(|n| n.is_element()) {
         match n.tag_name().name() {
-            "reading" => entry.readings.push(Reference {
-                value: get_text(n.text()),
-                typ: get_text(n.attribute("r_type")),
+            "reading" => group.reading.push(Reading {
+                reading: get_text(n.text()),
+                r_type: get_text(n.attribute("r_type")),
             }),
-            "meaning" => entry.meanings.push(Reference {
-                value: get_text(n.text()),
-                typ: n
-                    .attribute("m_lang")
-                    .map(|s| s.trim())
-                    .unwrap_or("en")
-                    .into(),
+            "meaning" => group.meaning.push(Meaning {
+                meaning: get_text(n.text()),
+                m_lang: get_optional_text(n.attribute("m_lang")).unwrap_or("en".into()),
             }),
             tag => println!("Warning: unexpected tag name in reading_meaning: {}", tag),
         };
     }
+    entry.rmgroup.push(group);
 }
 
+// TODO these should probably all be falliable
 fn get_text(s: Option<&str>) -> String {
-    // TODO this should probably return a result instead of expecting
-    s.expect("no text").trim().into()
+    get_optional_text(s).expect("no text")
 }
 
-fn get_num(s: Option<&str>) -> i32 {
-    // TODO this should probably return a result instead of expecting
-    s.expect("no text").trim().parse().expect("failed to parse")
+fn get_num(s: Option<&str>) -> u32 {
+    get_optional_num(s).expect("no number")
+}
+
+fn get_optional_text(s: Option<&str>) -> Option<String> {
+    s.map(|s| s.trim().into())
+}
+
+fn get_optional_num(s: Option<&str>) -> Option<u32> {
+    s.map(|s| s.trim().parse().expect("failed to parse"))
 }
 
 #[test]
 fn test_parse() {
-    let mut d = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    d.push("../data/kanjidic2.xml");
-    let text = std::fs::read_to_string(d).unwrap();
+    let text = super::read_kanjidic();
     for kanji in parse(&text).entries() {
         println!("{:?}", kanji);
     }

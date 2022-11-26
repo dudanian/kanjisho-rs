@@ -41,7 +41,7 @@ struct Radical {
 }
 
 struct Info {
-     /// The kanji grade level. 1 through 6 indicates a Kyouiku kanji
+    /// The kanji grade level. 1 through 6 indicates a Kyouiku kanji
     /// and the grade in which the kanji is taught in Japanese schools.
     /// 8 indicates it is one of the remaining Jouyou Kanji to be learned
     /// in junior high school. 9 indicates it is a Jinmeiyou (for use
@@ -58,7 +58,7 @@ struct Info {
     /// radicals.) [S]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stroke_miscounts: Vec<i32>,
-        /// A frequency-of-use ranking. The 2,500 most-used characters have a
+    /// A frequency-of-use ranking. The 2,500 most-used characters have a
     /// ranking; those characters that lack this field are not ranked. The
     /// frequency is a number from 1 to 2,500 that expresses the relative
     /// frequency of occurrence of a character in modern Japanese. This is
@@ -68,7 +68,7 @@ struct Info {
     /// kanji ranked as there was a tie.)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub freq: Option<i32>,
-       /// The (former) Japanese Language Proficiency test level for this kanji.
+    /// The (former) Japanese Language Proficiency test level for this kanji.
     /// Values range from 1 (most advanced) to 4 (most elementary). This field
     /// does not appear for kanji that were not required for any JLPT level.
     /// Note that the JLPT test levels changed in 2010, with a new 5-level
