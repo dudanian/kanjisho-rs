@@ -20,7 +20,7 @@ pub fn update_kanjidic() -> mongodb::error::Result<()> {
         kanjidic::parse(&text).entries().map(|mut e| {
             if let Some(v) = klc.get(&e.literal) {
                 e.dict.push(Reference {
-                    value: *v,
+                    value: kanjidic::NumString::Num(*v),
                     typ: "klc".into(),
                 })
             }

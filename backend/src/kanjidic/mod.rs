@@ -11,6 +11,8 @@ use mongodb::{
 use parse::kanjidic::Kanji;
 use serde::Deserialize;
 
+mod data;
+
 use crate::{AppError, Database};
 
 pub async fn get_index(db: Extension<Database>) -> Result<Json<Vec<String>>, AppError> {

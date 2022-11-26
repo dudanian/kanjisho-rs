@@ -1,6 +1,29 @@
 use roxmltree::{Document, Node, ParsingOptions};
 use serde::{Deserialize, Serialize};
 
+/// This module is based off of the DTD of the XML-format kanji file
+/// combining information from the KANJIDIC and KANJD212 files. This
+/// struct aims to reproduce the KANJIDIC format to the fullest with
+/// no assumptions about how the data will be used.
+///
+/// The Kanjidic covers the following kanji:
+///  * the 6,355 kanji from JIS X 0208;
+///  * the 5,801 kanji from JIS X 0212;
+///  * the 3,693 kanji from JIS X 0213 as follows:
+///    * the 2,741 kanji which are also in JIS X 0212 have
+///      JIS X 0213 code-points (kuten) added to the existing entry;
+///    * the 952 "new" kanji have new entries.
+///
+/// At the end of the explanation for a number of fields there is a tag
+/// with the format \[N\]. This indicates the leading letter(s) of the
+/// equivalent field in the KANJIDIC and KANJD212 files.
+///
+/// The KANJIDIC documentation should also be read for additional
+/// information about the information in the file.
+pub struct Kanjidic<'a> {
+    doc: Document<'a>,
+}
+
 /// The single header element will contain identification information
 /// about the version of the file
 #[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
@@ -14,6 +37,12 @@ pub struct Header {
     database_version: String,
     /// The date the file was created in international format (YYYY-MM-DD).
     date_of_creation: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub enum NumString {
+    Num(i32),
+    String(String),
 }
 
 /// A Kanji entry in the dictionary
@@ -157,7 +186,7 @@ pub struct Kanji {
     ///  * maniette - codes from Yves Maniette's "Les Kanjis dans la tete"
     ///      French adaptation of Heisig.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub dict: Vec<Reference<i32>>,
+    pub dict: Vec<Reference<NumString>>,
     /// These codes contain information relating to the glyph, and can be used
     /// for finding a required kanji. The type of code is defined by the
     /// qc_type attribute.
@@ -255,24 +284,6 @@ pub struct Query {
     pub typ: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub misclass: Option<String>,
-}
-
-/// The Kanjidic covers the following kanji:
-///  * the 6,355 kanji from JIS X 0208;
-///  * the 5,801 kanji from JIS X 0212;
-///  * the 3,693 kanji from JIS X 0213 as follows:
-///    * the 2,741 kanji which are also in JIS X 0212 have
-///      JIS X 0213 code-points (kuten) added to the existing entry;
-///    *  the 952 "new" kanji have new entries.
-///
-/// At the end of the explanation for a number of fields there is a tag
-/// with the format [N]. This indicates the leading letter(s) of the
-/// equivalent field in the KANJIDIC and KANJD212 files.
-///
-/// The KANJIDIC documentation should also be read for additional
-/// information about the information in the file.
-pub struct Kanjidic<'a> {
-    doc: Document<'a>,
 }
 
 impl<'a> Kanjidic<'a> {
@@ -403,17 +414,16 @@ fn parse_dic_number(node: Node, entry: &mut Kanji) {
     entry.dict = node
         .children()
         .filter(|n| n.is_element())
-        .filter_map(|n| {
+        .map(|n| {
             let typ = get_text(n.attribute("dr_type"));
-            // skip busy people with their non-int format
-            if typ == "busy_people" || typ == "moro" || typ == "oneill_names" {
-                return None;
-            }
-            println!("{}, {}", typ, n.text().unwrap());
-            Some(Reference {
-                value: get_num(n.text()),
-                typ,
-            })
+
+            let text = get_text(n.text());
+            let value = match text.parse::<i32>() {
+                Ok(i) => NumString::Num(i),
+                Err(_) => NumString::String(text),
+            };
+
+            Reference { value, typ }
         })
         .collect();
 }
