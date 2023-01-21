@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 
 use backend::data::kanji;
 use parse::kanjidic;

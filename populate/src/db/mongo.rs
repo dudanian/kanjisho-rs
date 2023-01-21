@@ -1,12 +1,14 @@
 use core::panic;
 
 use backend::data::kanji::Kanji;
-use mongodb::sync::{Client, Collection};
+use mongodb::{
+    bson::doc,
+    sync::{Client, Collection},
+    IndexModel,
+};
 use parse::util;
 
 use super::kanji::convert;
-
-// use super::{read_dict, read_klc_map};
 
 fn connect() -> mongodb::error::Result<Collection<Kanji>> {
     let url = std::env::var("MONGODB_URL").expect("MONGODB_URL not set");
@@ -44,7 +46,29 @@ pub fn update_kanjidic() -> mongodb::error::Result<()> {
         };
     }
 
+    let m = IndexModel::builder()
+        .keys(doc! {
+            "meanings": "text"
+        })
+        .build();
     // TODO I should create indexes
+    con.create_index(m, None)?;
+
+    let m = IndexModel::builder()
+        .keys(doc! {
+            "literal": 1
+        })
+        .build();
+    // TODO I should create indexes
+    con.create_index(m, None)?;
+
+    let m = IndexModel::builder()
+        .keys(doc! {
+            "references": 1
+        })
+        .build();
+    // TODO I should create indexes
+    con.create_index(m, None)?;
 
     Ok(())
 }

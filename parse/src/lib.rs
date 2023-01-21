@@ -1,3 +1,4 @@
+pub mod jmdict;
 pub mod kanjidic;
 
 fn data_path(file: &str) -> std::path::PathBuf {
@@ -8,6 +9,10 @@ fn data_path(file: &str) -> std::path::PathBuf {
 
 pub fn read_file(filename: &str) -> String {
     std::fs::read_to_string(data_path(filename)).unwrap()
+}
+
+pub fn write_file(filename: &str, data: &[u8]) {
+    std::fs::write(data_path(filename), data).unwrap()
 }
 
 pub mod util {

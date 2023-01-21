@@ -55,23 +55,24 @@ pub async fn get_kanji(
 }
 
 #[derive(Deserialize)]
-pub struct DictQuery {
+pub struct DictEntry {
     pub dict: String,
-    pub entry: String,
+    pub entry: u32,
 }
 
 pub async fn get_dict_entry(
-    filter: Query<DictQuery>,
+    params: Path<DictEntry>,
     db: Extension<Database>,
 ) -> Result<Json<Kanji>, AppError> {
     // use unwrap_or() for these
 
+    let key = "references.".to_owned() + &params.dict;
     let out = db
         .collection::<Kanji>("kanjidic")
         .find_one(
-            doc! { "references": {
-                &filter.dict: &filter.entry,
-            }},
+            doc! {
+                key:  params.entry,
+            },
             None,
         )
         .await?;
@@ -114,7 +115,6 @@ pub async fn get_dict_entries(
             },
             find_options,
         )
-
         .await?
         .with_type::<Kanji>();
 

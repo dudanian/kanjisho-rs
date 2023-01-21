@@ -48,6 +48,7 @@ async fn main() {
         .route("/kanjidic", get(kanji::get_index))
         .route("/kanjidic/random", get(kanji::get_random))
         .route("/kanjidic/dict", get(kanji::get_dict_entries))
+        .route("/kanjidic/dict/:dict/:entry", get(kanji::get_dict_entry))
         .route("/kanjidic/search", get(kanji::get_search))
         .route("/kanjidic/:kanji", get(kanji::get_kanji))
         .layer(Extension(state))
